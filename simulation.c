@@ -1,32 +1,25 @@
-#include "simulation.h"
+#include"simulation.h"
+#include"pbPlots.h"
+#include"supportLib.h"
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
 #include<time.h>
 #include<limits.h>
 
+#ifndef M_PI
+#    define M_PI 3.14159265358979323846
+#endif
+
 double randn(double mu, double sigma)
 {
-  double U1, U2, W, mult;
-  static double X1, X2;
-  static int call = 0;
-  if (call == 1)
-    {
-      call = !call;
-      return (mu + sigma * (double) X2);
-    }
-  do
-    {
-      U1 = -1 + ((double) rand () / RAND_MAX) * 2;
-      U2 = -1 + ((double) rand () / RAND_MAX) * 2;
-      W = pow (U1, 2) + pow (U2, 2);
-    }
-  while (W >= 1 || W == 0);
-  mult = sqrt ((-2 * log (W)) / W);
-  X1 = U1 * mult;
-  X2 = U2 * mult;
-  call = !call;
-  return (mu + sigma * (double) X1);
+    double u1 = rand() / (double)RAND_MAX;
+    double u2 = rand() / (double)RAND_MAX;
+
+    double z0 = sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
+
+    // Apply mean and standard deviation
+    return mu + sigma * z0;
 }
 
 Particle* initialize_particle(double mean_mass,double var_mass,double mean_pos,double var_pos){
@@ -47,59 +40,86 @@ Particle** initialize_particle_system(double mean_mass,double var_mass,double me
     return p;
 }
 
-void collision(Particle *p1,Particle *p2){
-    if(&p1 == NULL || &p2 == NULL) return;
-    Particle p;
-    p.m = p1->m + p2->m;
-    for(int i = 0;i<dimensions;i++){
-        p.r[i] = p1->m*p1->r[i] + p2->m*p2->r[i];
-        p.u[i] = p1->m*p1->u[i] + p2->m*p2->u[i];
-        p.v[i] = p1->m*p1->v[i] + p2->m*p2->v[i];
-    }
-    copy_params(&p,p1);
-    free(p2);
-    p2 = NULL;
-}
-
-
-Particle* update_particle_params(Particle **p,int particle_num){
-    if(p[particle_num] == NULL) return;
-    int n = sizeof(p)/sizeof(Particle);
-    double g[dimensions] = {0.0};
-    for(int i = 0;n;i++){
+void collision(Particle **p,int particle_num,int n){
+    if(p == NULL || p[particle_num] == NULL) return;
+    int arr[n];
+    int k = 0;
+    for(int i = 0;i<n;i++){
         if(i == particle_num) continue;
         if(p[i] == NULL) continue;
-        double r = calc_euclidean_dist_cubed(p[i],p[particle_num]);
+        double r = calc_euclidean_dist(p[particle_num],p[i]);
+        if(r<=merger_radius) arr[k++] = i;
+    }
+    
+    if(k == 0) return;
+    double net_mass = 0,r[dimensions] = {0},u[dimensions] = {0};
+    for(int i = 0;i<k;i++){
+        if(i == particle_num) continue; 
+        net_mass += p[arr[i]]->m;
+        //printf("here\n");
+        for(int j = 0;j<dimensions;j++){
+            r[j] += p[arr[i]]->r[j]*p[arr[i]]->m;
+            u[j] += p[arr[i]]->u[j]*p[arr[i]]->m;
+        }
+        p[i] = NULL;
+    }
+    p[particle_num]->m = net_mass;
+    //printf("e\n");
+    for(int i = 0;i<dimensions;i++){
+        //printf("he\n");
+        p[particle_num]->r[i] = r[i]/net_mass;
+        p[particle_num]->u[i] = u[i]/net_mass;
+        p[particle_num]->v[i] = 0;
+    }
+    //printf("here2\n");
+}
+
+Particle* update_particle_params(Particle **p,int particle_num,int n,int t){
+    if(p[particle_num] == NULL) return NULL;
+    double g[dimensions] = {0.0};
+    for(int i = 0;i<n;i++){
+        if(i == particle_num) continue;
+        if(p[i] == NULL) continue;
+        double r = calc_euclidean_dist(p[i],p[particle_num]);
         for(int j = 0;j<dimensions;j++){
             g[j] = (G*(p[i]->m)*(p[i]->r[j] - p[particle_num]->r[j]))/r;
         }
     }
-    Particle *temp_p;
+    Particle *temp_p = initialize_particle(0,0,0,0);
+    temp_p->m = p[particle_num]->m;
     for(int i = 0;i<dimensions;i++){
         temp_p->u[i] = p[particle_num]->u[i];
         temp_p->v[i] = p[particle_num]->v[i];
-        temp_p->r[i] = p[particle_num]->r[i];
+        temp_p->r[i] = p[particle_num]->r[i]+randn(0,1);
     }
     return temp_p;
 }
 
-void update_system(Particle **p){
-    int n = sizeof(p)/sizeof(Particle);
-    Particle** p_temp = initialize_particle_system(0,0,0,0,n);
+void update_system(Particle **p,int n,int t){
+    Particle **p_temp = initialize_particle_system(0,0,0,0,n);
     for(int i = 0;i<n;i++){
-        p_temp[i] = update_particle_params(p,i);
+        p_temp[i] = update_particle_params(p,i,n,t);
+        //printf("%d\n",i);
     }
-    copy_particle_system(p_temp,p);
+    copy_particle_system(p_temp,p,n);
+    delete_particle_system(p_temp,n);
+    //printf("%d\n",n);
+    for(int i = 0;i<n;i++){
+        if(p[i] == NULL) continue;
+        //printf("%d\n",i);
+        collision(p,i,n);
+    }
+    //printf("%d\n",n);
 }
 
 
-double calc_euclidean_dist_cubed(Particle *p1,Particle *p2){
-    if(p1 == NULL || p2 == NULL) return;
+double calc_euclidean_dist(Particle *p1,Particle *p2){
+    if(p1 == NULL || p2 == NULL) return 0.0;
     double ans = 0.0;
     for(int i = 0;i<dimensions;i++){
         ans += pow((p1->r[i] - p2->r[i]),2);
     }
-    return pow(sqrt(ans),2);
+    return sqrt(ans);
 }
 
 void copy_params(Particle *p1,Particle *p2){
@@ -113,16 +133,14 @@ void copy_params(Particle *p1,Particle *p2){
     
 }
 
-void copy_particle_system(Particle **p1,Particle **p2){
-    int n = sizeof(p1)/sizeof(Particle);
+void copy_particle_system(Particle **p1,Particle **p2,int n){
     for(int i = 0;i<n;i++){
-        copy_params(p1,p2);
+        copy_params(p1[i],p2[i]);
     }
 }
 
-void delete_particle_system(Particle **p){
+void delete_particle_system(Particle **p,int n){
     if(p == NULL) return;
-    int n = sizeof(p)/sizeof(Particle);
     for(int i = 0;i<n;i++){
         free(p[i]);
         p[i] = NULL;
@@ -153,15 +171,43 @@ void print_particle_info(Particle *p){
     for(int i = 0;i<dimensions;i++){
         printf("%f ",p->v[i]);
     }
-    printf("]\n");
+    printf("]\n\n");
+}
+
+void print_system_info(Particle **p,int n){
+    printf("\nNumber of Particles in the System: %d\n",n);
+    for(int i = 0;i<n;i++) {
+        if(p[i] == NULL)continue;
+        print_particle_info(p[i]);
+    }
+}
+
+int count_particles(Particle **p,int n){
+    int particle_count = 0;
+    for(int i = 0;i<n;i++){
+        if(p[i] != NULL) particle_count++;
+    }
+    return particle_count;
 }
 
 int main(){
-    printf("%ld\n",1<<30);
-    printf("%ld\n",((1ll)*sizeof(Particle)*(1ll)*INT_MAX)/(1<<30));
-    // int n = INT_MAX;
-    // printf("Dimensions: %d\n",dimensions);
-    // Particle **p = initialize_particle_system(1,1,0,1,n);
-    // for(int i = 0;i<n;i+=INT_MAX/100) print_particle_info(p[i]);
+    int n = 100;
+    int itr = 1000;
+    double time[itr],pno[itr];
+    printf("Dimensions: %d\n",dimensions);
+    Particle **p = initialize_particle_system(1,1,0,1,n);
+    print_system_info(p,n);
+    for(int i = 0;i<itr;i++){
+        int temp = count_particles(p,n);
+        update_system(p,n,i);
+        printf("%d\n",temp);
+        time[i] = i;
+        pno[i] = temp;
+    }
+    RGBABitmapImageReference *imageRef = CreateRGBABitmapImageReference();
+    DrawScatterPlot(imageRef,600,400,time,2,pno,2);
+    size_t length;
+    double *pngData = ConvertToPNG(&length,imageRef->image);
+    WriteToFile(pngData,length,"plot.png");
     return 0;
 }

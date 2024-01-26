@@ -2,7 +2,7 @@
 
 #define dimensions 3
 
-const double merger_radius = 1.8;
+const double merger_radius = 0.1;
 const double iteration_time_scale = 0.0;
 const double G = 6.6743/1e11;
 

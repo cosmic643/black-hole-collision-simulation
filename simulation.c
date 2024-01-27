@@ -11,7 +11,6 @@
 #    define M_PI 3.14159265358979323846
 #endif
 
-double TIME_SCALE = 0.01;
 
 double randn(double mu, double sigma)
 {
@@ -24,27 +23,28 @@ double randn(double mu, double sigma)
     return mu + sigma * z0;
 }
 
-Particle* initialize_particle(double mean_mass,double var_mass,double mean_pos,double var_pos){
+Particle* initialize_particle(double mean_mass,double sd_mass,double mean_pos,double sd_pos){
     Particle* p = malloc(sizeof(Particle));
-    p->m = randn(mean_mass,var_mass);
+    p->m = randn(mean_mass,sd_mass);
+    if(p->m < 0.0) p->m *= -1;
     for(int i = 0;i<dimensions;i++){
-        p->r[i] = randn(mean_pos,var_pos);
+        p->r[i] = randn(mean_pos,sd_pos);
         p->u[i] = 0;
         p->v[i] = 0;
     }
     return p;
 }
 
-Particle** initialize_particle_system(double mean_mass,double var_mass,double mean_pos,double var_pos,int n){
+Particle** initialize_particle_system(double mean_mass,double sd_mass,double mean_pos,double sd_pos,int n){
     Particle **p = malloc(sizeof(Particle*)*n);
     for(int i = 0;i<n;i++){
-        p[i] = initialize_particle(mean_mass,var_mass,mean_pos,var_pos);
+        p[i] = initialize_particle(mean_mass,sd_mass,mean_pos,sd_pos);
     }
     return p;
 }
 
-void collision(Particle **p,int particle_num,int n){
-    if(p == NULL || p[particle_num] == NULL) return;
+int collision(Particle **p,int particle_num,int n){
+    if(p == NULL || p[particle_num] == NULL) return 0;
     int arr[n];
     int k = 0;
     for(int i = 0;i<n;i++){
@@ -53,8 +53,8 @@ void collision(Particle **p,int particle_num,int n){
         double r = calc_euclidean_dist(p[particle_num],p[i]);
         if(r<=merger_radius) arr[k++] = i;
     }
-    if(k == 0) return;
-    printf("\nNumber of Collisions: %d\n",k);
+    if(k == 0) return 0;
+    //printf("\tNumber of Collisions: %d\n",k);
     double net_mass = p[particle_num]->m,r[dimensions],u[dimensions];
     for(int i = 0;i<dimensions;i++){
         r[i] = 0.0;
@@ -75,6 +75,7 @@ void collision(Particle **p,int particle_num,int n){
         p[particle_num]->u[i] = u[i]/net_mass;
         p[particle_num]->v[i] = 0;
     }
+    return k;
 }
 
 Particle* update_particle_params(Particle **p,int particle_num,int n,int t){
@@ -86,7 +87,7 @@ Particle* update_particle_params(Particle **p,int particle_num,int n,int t){
         if(p[i] == NULL) continue;
         double r = calc_euclidean_dist(p[i],p[particle_num]);
         for(int j = 0;j<dimensions;j++){
-            g[j] += ((p[i]->m)*(p[i]->r[j] - p[particle_num]->r[j]))/(r*r*r);
+            g[j] += G*((p[i]->m)*(p[i]->r[j] - p[particle_num]->r[j]))/(r*r*r);
         }
     }
     Particle *temp_p = initialize_particle(0,0,0,0);
@@ -100,17 +101,20 @@ Particle* update_particle_params(Particle **p,int particle_num,int n,int t){
 }
 
 void update_system(Particle **p,int n,int t){
+    printf("Iteration: %d\t",t+1);
     Particle **p_temp = initialize_particle_system(0,0,0,0,n);
     for(int i = 0;i<n;i++){
         p_temp[i] = update_particle_params(p,i,n,t);
     }
+    int c = 0;
     copy_particle_system(p_temp,p,n);
     delete_particle_system(p_temp,n);
     for(int i = 0;i<n;i++){
         if(p[i] == NULL) continue;
         //printf("%d\n",i);
-        collision(p,i,n);
+        c += collision(p,i,n);
     }
+    printf("Collisions: %d\n",c);
 }
 
 
@@ -171,7 +175,7 @@ void print_particle_info(Particle *p){
 }
 
 void print_system_info(Particle **p,int n){
-    printf("\nNumber of Particles in the System: %d\n",n);
+    printf("\nNumber of Particles in the System: %d\n",count_particles(p,n));
     for(int i = 0;i<n;i++) {
         if(p[i] == NULL)continue;
         print_particle_info(p[i]);
@@ -190,23 +194,36 @@ int count_particles(Particle **p,int n){
     return particle_count;
 }
 
+void distance_matrix(Particle **p);
+
 int main(){
     int n = 10;
     int itr = 1000;
-    // printf("\t\t\t\t\t\tBlack Hole Collosion Simulation\n");
-    // printf("Enter the number of Black holes in Simulation: ");
-    // scanf("%d",&n);
-    // printf("Enter the number of iterations to be done: ");
-    // scanf("%d",&itr);
-    // printf("Enter the time to be elapsed in iteration: ");
-    // scanf("%f",&TIME_SCALE);
-    // printf("Number of Black Holes: %d\n",n);
-    // printf("Number of iterations: %d\n",itr);
-    // printf("Time elapsed in one iteration: %f\n",TIME_SCALE);
-    //printf("\nDimensions: %d\n",dimensions);
+    double mean_mass = 0,sd_mass = 1,mean_pos = 0,sd_pos = 1;
+    printf("\t\t\t\t\tBlack Hole Collision Simulation\n");
+    printf("Enter the mean mass: ");
+    scanf("%f",&mean_mass);
+    printf("Enter the standard deviation of masses: ");
+    scanf("%f",&sd_mass);
+    printf("Enter the mean absolute position: ");
+    scanf("%f",&mean_pos);
+    printf("Enter the standard deviation of absolute positions: ");
+    scanf("%f",&sd_pos);
+    printf("Enter the number of Black holes in Simulation: ");
+    scanf("%d",&n);
+    printf("Enter the number of iterations to be done: ");
+    scanf("%d",&itr);
+    printf("Enter the time to be elapsed in iteration: ");
+    scanf("%f",&TIME_SCALE);
+    printf("Enter merging radius: ");
+    scanf("%f",&merger_radius);
+    printf("Number of Black Holes: %d\n",n);
+    printf("Number of iterations: %d\n",itr);
+    printf("Time elapsed in one iteration: %f\n",TIME_SCALE);
+    printf("\nDimensions: %d\n",dimensions);
 
     double time[itr],pno[itr];
-    Particle **p = initialize_particle_system(10,2,0,1,n);
+    Particle **p = initialize_particle_system(1,1,0,1,n);
     print_system_info(p,n);
     printf("----------------\n");
     for(int i = 0;i<itr;i++){
@@ -215,11 +232,10 @@ int main(){
         time[i] = i;
         pno[i] = temp;
         //print_system_info(p,n);
+        //if(itr%100 == 0) TIME_SCALE *= 2;
+        //print_system_info(p,n);
     }
-    // for(int i = 0;i<itr;i++){
-    //     printf("Time: %f  Number of Particles: %f\n",time[i],pno[i]);
-    // }
-
+    //print_system_info(p,n);
     //code for storing data in a text file used for graphing purpose
     FILE *file1 = fopen("time.txt", "w");
     for (int i = 0; i < itr; i++) {
@@ -231,10 +247,16 @@ int main(){
         fprintf(file2, "%.2lf\n", pno[i]);
     }
     fclose(file2);
-    // RGBABitmapImageReference *imageRef = CreateRGBABitmapImageReference();
-    // DrawScatterPlot(imageRef,600,400,time,2,pno,2);
-    // size_t length;
-    // double *pngData = ConvertToPNG(&length,imageRef->image);
-    // WriteToFile(pngData,length,"plot.png");
+
+    FILE *file3 = fopen("black_hole_system_info.txt","w");
+    fprintf(file3,"%f\n",mean_mass);
+    fprintf(file3,"%f\n",sd_mass);
+    fprintf(file3,"%f\n",mean_pos);
+    fprintf(file3,"%f\n",sd_pos);
+    fprintf(file3,"%d\n",n);
+    fprintf(file3,"%d\n",itr);
+    fprintf(file3,"%f\n",TIME_SCALE);
+    fprintf(file3,"%f\n",merger_radius);
+    fclose(file3);
     return 0;
 }

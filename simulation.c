@@ -11,6 +11,9 @@
 #    define M_PI 3.14159265358979323846
 #endif
 
+double merger_radius = 0.1;
+double G = 1;
+double TIME_SCALE = 0.01;
 
 double randn(double mu, double sigma)
 {
@@ -117,7 +120,6 @@ void update_system(Particle **p,int n,int t){
     printf("Collisions: %d\n",c);
 }
 
-
 double calc_euclidean_dist(Particle *p1,Particle *p2){
     if(p1 == NULL || p2 == NULL) return 0.0; //wrong
     double ans = 0.0;
@@ -190,7 +192,6 @@ int count_particles(Particle **p,int n){
         }
         
     }
-
     return particle_count;
 }
 
@@ -200,30 +201,28 @@ int main(){
     int n = 10;
     int itr = 1000;
     double mean_mass = 0,sd_mass = 1,mean_pos = 0,sd_pos = 1;
-    printf("\t\t\t\t\tBlack Hole Collision Simulation\n");
+    // printf("\t\t\t\t\tBlack Hole Collision Simulation\n");
+    // fflush(stdin);
     printf("Enter the mean mass: ");
-    scanf("%f",&mean_mass);
+    scanf(" %lf",&mean_mass);
     printf("Enter the standard deviation of masses: ");
-    scanf("%f",&sd_mass);
+    scanf(" %lf",&sd_mass);
     printf("Enter the mean absolute position: ");
-    scanf("%f",&mean_pos);
+    scanf(" %lf",&mean_pos);
     printf("Enter the standard deviation of absolute positions: ");
-    scanf("%f",&sd_pos);
+    scanf(" %lf",&sd_pos);
     printf("Enter the number of Black holes in Simulation: ");
-    scanf("%d",&n);
+    scanf(" %d",&n);
     printf("Enter the number of iterations to be done: ");
-    scanf("%d",&itr);
+    scanf(" %d",&itr);
     printf("Enter the time to be elapsed in iteration: ");
-    scanf("%f",&TIME_SCALE);
+    scanf(" %lf",&TIME_SCALE);
     printf("Enter merging radius: ");
-    scanf("%f",&merger_radius);
-    printf("Number of Black Holes: %d\n",n);
-    printf("Number of iterations: %d\n",itr);
-    printf("Time elapsed in one iteration: %f\n",TIME_SCALE);
-    printf("\nDimensions: %d\n",dimensions);
-
+    scanf(" %lf",&merger_radius);
+    printf("Enter the Scaled value of G: ");
+    scanf(" %lf,%G");
     double time[itr],pno[itr];
-    Particle **p = initialize_particle_system(1,1,0,1,n);
+    Particle **p = initialize_particle_system(mean_mass,sd_mass,mean_pos,sd_pos,n);
     print_system_info(p,n);
     printf("----------------\n");
     for(int i = 0;i<itr;i++){
@@ -231,17 +230,14 @@ int main(){
         update_system(p,n,i);
         time[i] = i;
         pno[i] = temp;
-        //print_system_info(p,n);
-        //if(itr%100 == 0) TIME_SCALE *= 2;
-        //print_system_info(p,n);
     }
-    //print_system_info(p,n);
-    //code for storing data in a text file used for graphing purpose
+
     FILE *file1 = fopen("time.txt", "w");
     for (int i = 0; i < itr; i++) {
         fprintf(file1, "%.2lf\n", time[i]);
     }
     fclose(file1);
+
     FILE *file2 = fopen("pno.txt", "w");
     for (int i = 0; i < itr; i++) {
         fprintf(file2, "%.2lf\n", pno[i]);
@@ -249,14 +245,15 @@ int main(){
     fclose(file2);
 
     FILE *file3 = fopen("black_hole_system_info.txt","w");
-    fprintf(file3,"%f\n",mean_mass);
-    fprintf(file3,"%f\n",sd_mass);
-    fprintf(file3,"%f\n",mean_pos);
-    fprintf(file3,"%f\n",sd_pos);
+    fprintf(file3,"%.2lf\n",mean_mass);
+    fprintf(file3,"%.2lf\n",sd_mass);
+    fprintf(file3,"%.2lf\n",mean_pos);
+    fprintf(file3,"%.2lf\n",sd_pos);
     fprintf(file3,"%d\n",n);
     fprintf(file3,"%d\n",itr);
-    fprintf(file3,"%f\n",TIME_SCALE);
-    fprintf(file3,"%f\n",merger_radius);
+    fprintf(file3,"%.5lf\n",TIME_SCALE);
+    fprintf(file3,"%.5lf\n",merger_radius);
     fclose(file3);
+
     return 0;
 }

@@ -2,10 +2,6 @@
 
 #define dimensions 3
 
-double merger_radius = 0.1;
-const double G = 1;
-double TIME_SCALE = 0.01;
-
 typedef struct{
     double m;
     double r[dimensions];

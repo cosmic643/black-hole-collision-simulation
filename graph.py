@@ -27,7 +27,7 @@ with open('black_hole_system_info.txt','r') as system_data:
     itr = float(system_data.readline())
     TIME_SCALE = float(system_data.readline())
     merger_radius = float(system_data.readline())
-
+print(mean_mass)
 mean_mass = 'Mean Mass: ' + str(mean_mass)
 sd_mass = 'SD of Mass: ' + str(sd_mass)
 mean_pos = 'Mean position: ' + str(mean_pos)
@@ -41,7 +41,9 @@ data = mean_mass + '\n' + sd_mass + '\n' + mean_pos + '\n' + sd_pos + '\n' + TIM
 
 plt.xlabel("Iterations (Total iterations: " + itr + ')', fontsize = 10)
 plt.ylabel("Number of Particles (Initially: " + n + ')',fontsize = 10)
-plt.text(400,60, data, fontsize = 12,bbox = dict(facecolor = 'white', alpha = 0.5))
+itr = int(itr)
+n = int(n)
+plt.text(550,980, data, fontsize = 12,bbox = dict(facecolor = 'white', alpha = 0.5))
 
 plt.plot(x,y,'g')
 plt.show()
